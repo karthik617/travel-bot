@@ -8,6 +8,9 @@
 
 const ENDPOINT = process.env.LOCAL_LLM_ENDPOINT || "http://localhost:11434";
 const MODEL = process.env.LOCAL_LLM_MODEL || "qwen2.5:7b";
+// Separate small vision model for the "eyes" organ (Architecture Spec 01, cold
+// lane). Kept independent so the text model can change without affecting vision.
+const VISION_MODEL = process.env.VISION_MODEL || "moondream";
 
 // Default request timeout. On CPU-only Ollama a short story can take 30-50s, so
 // allow this to be raised via env (e.g. OLLAMA_TIMEOUT_MS=90000 in Docker) to
@@ -82,6 +85,50 @@ export async function generateFromOllama({
     return text.length > 0 ? text : fallback;
   } catch (err) {
     console.warn(`[ollama] Request failed (${err?.name || "error"}): ${err?.message}`);
+    return fallback;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Vision call for the "eyes" organ: ask the local VLM to describe a real image.
+ * Never throws — returns `fallback` (default null) on any failure, so a missing
+ * model or a slow CPU never breaks the tick.
+ *
+ * @param {Object} opts
+ * @param {string} opts.imageBase64 - raw base64 (no data: prefix) of the image.
+ * @param {string} opts.prompt
+ * @param {*} [opts.fallback=null]
+ * @param {number} [opts.timeoutMs=60000] - VLMs on CPU are slow; allow a wide window.
+ * @returns {Promise<string|null>}
+ */
+export async function describeImage({ imageBase64, prompt, fallback = null, timeoutMs = 60000 }) {
+  if (!imageBase64) return fallback;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${ENDPOINT.replace(/\/$/, "")}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: VISION_MODEL,
+        prompt,
+        images: [imageBase64],
+        stream: false,
+        options: { temperature: 0.4, num_predict: 80 },
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      console.warn(`[ollama] vision non-OK (${res.status}); skipping.`);
+      return fallback;
+    }
+    const data = await res.json();
+    const text = (data?.response ?? "").trim();
+    return text.length > 0 ? text : fallback;
+  } catch (err) {
+    console.warn(`[ollama] vision failed (${err?.name || "error"}): ${err?.message}`);
     return fallback;
   } finally {
     clearTimeout(timer);

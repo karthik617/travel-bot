@@ -14,7 +14,7 @@ import { discoverCandidates, chooseNextDestination } from "@/lib/explore";
 import { getTimeContext, fetchWeather } from "@/lib/context";
 import { gatherSignals, pickBeat } from "@/lib/agent/signals";
 import { decide } from "@/lib/agent/director";
-import { narrate } from "@/lib/agent/organs";
+import { narrate, eyes } from "@/lib/agent/organs";
 import { consolidate } from "@/lib/agent/memory";
 import { fetchLandmarkImage } from "@/lib/media";
 import { logSupport } from "@/lib/supporters";
@@ -58,8 +58,8 @@ async function insertState(r) {
     `INSERT INTO bot_state
        (lat, lon, current_city, landmark_name, story, energy, wallet,
         image_url, weather, time_of_day, activity,
-        target_name, target_lat, target_lon, trip_distance_km, mood, beat)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+        target_name, target_lat, target_lon, trip_distance_km, mood, beat, observation)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
      RETURNING *`,
     [
       r.lat,
@@ -79,6 +79,7 @@ async function insertState(r) {
       r.trip_distance_km ?? 0,
       r.mood ?? null,
       r.beat ?? null,
+      r.observation ?? null,
     ]
   );
   return rows[0];
@@ -447,6 +448,7 @@ export async function GET(request) {
     let cacheHit = false;
     let mood = null;     // Director's mood for this episode (spec 01 → spec 02)
     let beatKind = null; // emergent beat that fired, if any (spec 03)
+    let observation = null; // what the eyes organ saw, if it was woken (spec 01 cold)
 
     if (cache) {
       ({ story, landmark, image } = cache);
@@ -480,12 +482,20 @@ export async function GET(request) {
       mood = intent.mood;
       beatKind = beat?.kind ?? null;
 
+      // COLD organ: on a genuinely notable moment the Director routes to "eyes" —
+      // the VLM looks at the real photo so the narration is grounded in what's
+      // actually there. Degrades silently (null) if the model is missing/slow.
+      if (intent.route.includes("eyes")) {
+        observation = await eyes(image, place);
+      }
+
       story = await narrate({
         intent,
         place,
         time,
         weather,
         arrivedLine,
+        observation,
         fallback: `${step.arrived ? `Finally made it to ${place}!` : `Strolling past ${place}.`} The ${time.partOfDay} air is ${weather.summary.toLowerCase()} and I'm feeling ${intent.mood}. ${weather.emoji}`,
       });
     }
@@ -509,6 +519,7 @@ export async function GET(request) {
       trip_distance_km: tripDistance,
       mood,
       beat: beatKind,
+      observation,
     });
 
     // Observability for the pre-gen hit rate (best-effort).
@@ -546,6 +557,7 @@ export async function GET(request) {
       cache_hit: cacheHit,
       mood,
       beat: beatKind,
+      observation,
     });
   } catch (err) {
     console.error(`[travel-tick] Tick failed: ${err?.message}`);

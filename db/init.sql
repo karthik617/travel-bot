@@ -42,6 +42,8 @@ ALTER TABLE bot_state ADD COLUMN IF NOT EXISTS llm_cache_hit BOOLEAN;
 -- recorded on each episode so memory (spec 02) can recall and call back to it.
 ALTER TABLE bot_state ADD COLUMN IF NOT EXISTS mood VARCHAR(40);
 ALTER TABLE bot_state ADD COLUMN IF NOT EXISTS beat VARCHAR(40);
+-- What the "eyes" vision organ actually saw in the spot's photo (spec 01 cold lane).
+ALTER TABLE bot_state ADD COLUMN IF NOT EXISTS observation TEXT;
 
 CREATE TABLE IF NOT EXISTS active_votes (
     id SERIAL PRIMARY KEY,

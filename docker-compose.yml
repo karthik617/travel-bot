@@ -63,6 +63,7 @@ services:
     environment:
       OLLAMA_HOST: http://ollama:11434
       LOCAL_LLM_MODEL: ${LOCAL_LLM_MODEL}
+      VISION_MODEL: ${VISION_MODEL:-moondream}
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -70,7 +71,9 @@ services:
         until ollama list >/dev/null 2>&1; do sleep 2; done;
         echo "Pulling ${LOCAL_LLM_MODEL} (first run downloads ~4.7GB)...";
         ollama pull "${LOCAL_LLM_MODEL}";
-        echo "Model ${LOCAL_LLM_MODEL} is ready.";
+        echo "Pulling vision model ${VISION_MODEL:-moondream} for the eyes organ...";
+        ollama pull "${VISION_MODEL:-moondream}" || echo "Vision model pull failed (no registry egress?) — eyes organ will degrade gracefully until it's available.";
+        echo "Models ready.";
     restart: "no"
 
   # ---- Next.js dashboard + API ---------------------------------------------
@@ -88,6 +91,8 @@ services:
       # Reach the in-stack Ollama service over the compose network.
       LOCAL_LLM_ENDPOINT: http://ollama:11434
       LOCAL_LLM_MODEL: ${LOCAL_LLM_MODEL}
+      # Small vision model for the "eyes" organ. Degrades gracefully if absent.
+      VISION_MODEL: ${VISION_MODEL:-moondream}
       # Generous timeout so CPU-slow generations complete instead of falling back.
       OLLAMA_TIMEOUT_MS: ${OLLAMA_TIMEOUT_MS:-90000}
       CRON_SECRET_TOKEN: ${CRON_SECRET_TOKEN}
