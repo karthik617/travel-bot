@@ -15,6 +15,7 @@ import { getTimeContext, fetchWeather } from "@/lib/context";
 import { gatherSignals, pickBeat } from "@/lib/agent/signals";
 import { decide } from "@/lib/agent/director";
 import { narrate } from "@/lib/agent/organs";
+import { consolidate } from "@/lib/agent/memory";
 import { fetchLandmarkImage } from "@/lib/media";
 import { logSupport } from "@/lib/supporters";
 import { sendPushToAll } from "@/lib/push";
@@ -340,6 +341,10 @@ export async function GET(request) {
         target_lon: latest.target_lon,
         trip_distance_km: tripBase,
       });
+
+      // He rests → his memory consolidates "in his sleep" (spec 02). Detached so
+      // the tick returns now; self-guards to one real run per night.
+      consolidate().catch(() => {});
 
       return NextResponse.json({ ok: true, state: inserted, resting: true });
     }
