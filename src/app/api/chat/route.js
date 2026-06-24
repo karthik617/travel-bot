@@ -4,6 +4,7 @@ import { generateFromOllama } from "@/lib/ollama";
 import { getViewerMemory } from "@/lib/supporters";
 import { getTimeContext } from "@/lib/context";
 import { formatLocation } from "@/lib/journey";
+import { recallForChat } from "@/lib/agent/memory";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -95,12 +96,20 @@ export async function POST(request) {
     const time = getTimeContext();
     const weather = (state.weather || "").replace(/^[^\w]+\s*/, "").trim(); // strip leading emoji
 
-    // Pull what Elango "remembers" about this viewer so his reply is personal.
-    const { memory, stats, returning } = await getViewerMemory(username);
+    // Recall: the consolidated relationship profile + relevant facts (spec 02),
+    // and raw stats for the UI badge.
+    const [{ stats }, recall] = await Promise.all([
+      getViewerMemory(username),
+      recallForChat(username, city),
+    ]);
+    const memory = recall.memory;
+    const returning = recall.returning;
 
-    const fallback = returning
-      ? `Ayy ${username}, good to see you back, machan! Still roaming near ${place} this ${time.partOfDay} — thanks for always looking out for me. 🙏`
-      : `Hey ${username}, just chilling near ${place} this ${time.partOfDay}, munching on something hot and spicy — thanks for tuning in, machan!`;
+    const fallback = recall.missed
+      ? `Ayy ${username}! Machan, it's been ages — so good to hear from you again. I'm near ${place} this ${time.partOfDay}, same old wanderer. 🙏`
+      : returning
+        ? `Ayy ${username}, good to see you back, machan! Still roaming near ${place} this ${time.partOfDay} — thanks for always looking out for me. 🙏`
+        : `Hey ${username}, just chilling near ${place} this ${time.partOfDay}, munching on something hot and spicy — thanks for tuning in, machan!`;
 
     // Insert as PENDING and return immediately — the connection is freed in
     // <50ms instead of being held for the 25-50s Ollama call (which under light

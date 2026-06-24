@@ -38,6 +38,10 @@ ALTER TABLE bot_state ADD COLUMN IF NOT EXISTS pending_story TEXT;
 ALTER TABLE bot_state ADD COLUMN IF NOT EXISTS pending_lat FLOAT;
 ALTER TABLE bot_state ADD COLUMN IF NOT EXISTS pending_lon FLOAT;
 ALTER TABLE bot_state ADD COLUMN IF NOT EXISTS llm_cache_hit BOOLEAN;
+-- Agent loop (spec 01/03): the Director's mood + the emergent beat that fired,
+-- recorded on each episode so memory (spec 02) can recall and call back to it.
+ALTER TABLE bot_state ADD COLUMN IF NOT EXISTS mood VARCHAR(40);
+ALTER TABLE bot_state ADD COLUMN IF NOT EXISTS beat VARCHAR(40);
 
 CREATE TABLE IF NOT EXISTS active_votes (
     id SERIAL PRIMARY KEY,
@@ -145,6 +149,41 @@ CREATE INDEX IF NOT EXISTS idx_daily_active_day ON daily_active (day);
 
 -- Speeds up the presence stale-row prune now that it runs probabilistically.
 CREATE INDEX IF NOT EXISTS idx_presence_last_seen ON presence (last_seen);
+
+-- ---- Memory layer (Architecture Spec 02) --------------------------------
+-- The nightly "sleep pass" consolidates beat-tagged episodes into these:
+--   semantic_facts — distilled knowledge about places, himself, people
+--   people         — one evolving relationship profile per viewer
+--   diary_entries  — the day's recap (shareable, and a re-engagement hook)
+CREATE TABLE IF NOT EXISTS semantic_facts (
+    id SERIAL PRIMARY KEY,
+    subject VARCHAR(20) NOT NULL,
+    subject_key VARCHAR(120),
+    text TEXT NOT NULL,
+    salience REAL DEFAULT 0.5,
+    source_to INT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_semantic_subject ON semantic_facts (subject, subject_key);
+
+CREATE TABLE IF NOT EXISTS people (
+    handle VARCHAR(100) PRIMARY KEY,
+    session_id VARCHAR(64),
+    bond VARCHAR(20) DEFAULT 'newcomer',
+    summary TEXT,
+    deeds JSONB,
+    first_seen TIMESTAMP WITH TIME ZONE,
+    last_seen TIMESTAMP WITH TIME ZONE,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS diary_entries (
+    id SERIAL PRIMARY KEY,
+    day DATE,
+    text TEXT NOT NULL,
+    source_to INT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
 -- Seed Elango at Chennai's Marina Beach, but only if the journey is empty.
 INSERT INTO bot_state (lat, lon, current_city, landmark_name, story, energy, wallet)
