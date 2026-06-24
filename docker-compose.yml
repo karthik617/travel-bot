@@ -24,6 +24,16 @@ services:
   ollama:
     image: ollama/ollama:latest
     restart: unless-stopped
+    # Docker's embedded DNS (127.0.0.11) intermittently times out resolving the
+    # Cloudflare R2 blob host during model pulls; pin reliable public resolvers.
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    # R2 resolves to IPv6, but IPv6 over the Docker Desktop VM (vpnkit) is
+    # drop-prone and stalls model pulls. Force IPv4 so pulls are stable.
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=1
+      - net.ipv6.conf.default.disable_ipv6=1
     environment:
       # Keep the model resident in RAM between ticks so the 10-min ticker cadence
       # doesn't pay the model-load cost on every call (-1 = never unload).

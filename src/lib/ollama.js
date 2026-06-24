@@ -58,17 +58,21 @@ export async function generateFromOllama({
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const res = await fetch(`${ENDPOINT.replace(/\/$/, "")}/api/generate`, {
+    // Use /api/chat so Ollama applies each model's OWN chat template — this is
+    // model-agnostic (works for llama3.2, qwen, etc.), unlike a raw ChatML prompt
+    // which is Qwen-specific. Lets us swap LOCAL_LLM_MODEL freely.
+    const res = await fetch(`${ENDPOINT.replace(/\/$/, "")}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: MODEL,
-        prompt: buildChatML(system, user),
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
         stream: false,
-        raw: true,
         options: {
           temperature,
-          stop: [IM_END],
           num_predict: 220,
         },
       }),
@@ -81,7 +85,7 @@ export async function generateFromOllama({
     }
 
     const data = await res.json();
-    const text = (data?.response ?? "").replace(/<\|im_end\|>/g, "").trim();
+    const text = (data?.message?.content ?? "").trim();
     return text.length > 0 ? text : fallback;
   } catch (err) {
     console.warn(`[ollama] Request failed (${err?.name || "error"}): ${err?.message}`);
