@@ -1,0 +1,134 @@
+services:
+  # ---- PostgreSQL: the journey state machine -------------------------------
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ---- Ollama: local LLM (Qwen-2.5) for stories + chat ---------------------
+  # Fully self-contained — no host Ollama needed. The model lives in the
+  # `ollama` named volume so it's only downloaded once.
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    environment:
+      # Keep the model resident in RAM between ticks so the 10-min ticker cadence
+      # doesn't pay the model-load cost on every call (-1 = never unload).
+      OLLAMA_KEEP_ALIVE: "-1"
+    volumes:
+      - ollama:/root/.ollama
+    # Publish to the host only if you want to poke at it directly. Mapped to
+    # 11435 so it never clashes with a host Ollama already on 11434.
+    ports:
+      - "11435:11434"
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    # --- GPU acceleration (optional) ---------------------------------------
+    # Inference is CPU-only by default and qwen2.5:7b is slow on CPU, so the app
+    # often falls back to its built-in story text. If you have an NVIDIA GPU and
+    # the NVIDIA Container Toolkit installed, uncomment the block below for a
+    # big speed-up.
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  # ---- One-shot: pull the model into the ollama volume, then exit ----------
+  # The app waits for this to finish so the very first tick has a model ready.
+  ollama-pull:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_started
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      LOCAL_LLM_MODEL: ${LOCAL_LLM_MODEL}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Waiting for Ollama to come up...";
+        until ollama list >/dev/null 2>&1; do sleep 2; done;
+        echo "Pulling ${LOCAL_LLM_MODEL} (first run downloads ~4.7GB)...";
+        ollama pull "${LOCAL_LLM_MODEL}";
+        echo "Model ${LOCAL_LLM_MODEL} is ready.";
+    restart: "no"
+
+  # ---- Next.js dashboard + API ---------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      # Dashboard published on host :3005 (container listens on 3000). Avoids a
+      # leftover process holding host :3000; change the left side to taste.
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # Reach the in-stack Ollama service over the compose network.
+      LOCAL_LLM_ENDPOINT: http://ollama:11434
+      LOCAL_LLM_MODEL: ${LOCAL_LLM_MODEL}
+      # Generous timeout so CPU-slow generations complete instead of falling back.
+      OLLAMA_TIMEOUT_MS: ${OLLAMA_TIMEOUT_MS:-90000}
+      CRON_SECRET_TOKEN: ${CRON_SECRET_TOKEN}
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
+      VAPID_SUBJECT: ${VAPID_SUBJECT}
+    depends_on:
+      db:
+        condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
+    healthcheck:
+      # Use 127.0.0.1, not localhost: inside the container localhost resolves to
+      # IPv6 ::1 first, but the Next server listens on IPv4 0.0.0.0 → refused.
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/state >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  # ---- Autonomous ticker: advances Elango on an interval -------------------
+  # Stands in for Vercel Cron in a self-hosted deployment.
+  ticker:
+    image: curlimages/curl:8.10.1
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      TICK_INTERVAL_SECONDS: ${TICK_INTERVAL_SECONDS}
+      CRON_SECRET_TOKEN: ${CRON_SECRET_TOKEN}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Ticker started; interval=${TICK_INTERVAL_SECONDS}s";
+        while true; do
+          curl -s -m 120 -H "Authorization: Bearer ${CRON_SECRET_TOKEN}" \
+            http://app:3000/api/travel-tick > /dev/null 2>&1 || true;
+          sleep "${TICK_INTERVAL_SECONDS}";
+        done
+
+volumes:
+  pgdata:
+  ollama:
