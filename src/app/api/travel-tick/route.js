@@ -12,6 +12,9 @@ import {
 } from "@/lib/journey";
 import { discoverCandidates, chooseNextDestination } from "@/lib/explore";
 import { getTimeContext, fetchWeather } from "@/lib/context";
+import { gatherSignals, pickBeat } from "@/lib/agent/signals";
+import { decide } from "@/lib/agent/director";
+import { narrate } from "@/lib/agent/organs";
 import { fetchLandmarkImage } from "@/lib/media";
 import { logSupport } from "@/lib/supporters";
 import { sendPushToAll } from "@/lib/push";
@@ -54,8 +57,8 @@ async function insertState(r) {
     `INSERT INTO bot_state
        (lat, lon, current_city, landmark_name, story, energy, wallet,
         image_url, weather, time_of_day, activity,
-        target_name, target_lat, target_lon, trip_distance_km)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+        target_name, target_lat, target_lon, trip_distance_km, mood, beat)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
      RETURNING *`,
     [
       r.lat,
@@ -73,6 +76,8 @@ async function insertState(r) {
       r.target_lat ?? null,
       r.target_lon ?? null,
       r.trip_distance_km ?? 0,
+      r.mood ?? null,
+      r.beat ?? null,
     ]
   );
   return rows[0];
@@ -435,6 +440,8 @@ export async function GET(request) {
     let image;
     let story;
     let cacheHit = false;
+    let mood = null;     // Director's mood for this episode (spec 01 → spec 02)
+    let beatKind = null; // emergent beat that fired, if any (spec 03)
 
     if (cache) {
       ({ story, landmark, image } = cache);
@@ -452,14 +459,29 @@ export async function GET(request) {
       const arrivedLine = step.arrived
         ? `You've just arrived at ${place}.`
         : `You're trekking toward ${target.name}, right now passing ${place}.`;
-      story = await generateFromOllama({
-        system: ELANGO_SYS,
-        user:
-          `${arrivedLine} It's ${time.partOfDay} (${time.clock}) in Tamil Nadu and the weather is ${weather.summary}. ` +
-          `Write two fresh, vivid sentences about THIS exact spot right now — what you see, hear or smell here specifically. ` +
-          `You might mention craving ${time.mealHint} or notice ${time.vibe}, but only if it fits naturally. ` +
-          `Vary your imagery and do NOT reuse phrases like "shimmering tar roads" or "banana leaf" unless they're truly what's in front of you. Sound like a real person, never an AI.`,
-        fallback: `${step.arrived ? `Finally made it to ${place}!` : `Strolling past ${place}.`} The ${time.partOfDay} air is ${weather.summary.toLowerCase()}, and somewhere nearby someone's making ${time.mealHint}. ${weather.emoji}`,
+
+      // ---- Agent loop: REACT → DECIDE → Voice ----------------------------
+      // Score real signals (spec 03) into at most one beat; the Director turns it
+      // into an intent (spec 01); the warm Voice organ narrates from that intent.
+      const signals = gatherSignals({ weather, time, arrived: step.arrived, energy: baseEnergy, place });
+      const beat = pickBeat(signals, latest.beat || null);
+      const intent = decide({
+        perceive: { partOfDay: time.partOfDay },
+        beat,
+        energy: baseEnergy,
+        wallet: baseWallet,
+        arrived: step.arrived,
+      });
+      mood = intent.mood;
+      beatKind = beat?.kind ?? null;
+
+      story = await narrate({
+        intent,
+        place,
+        time,
+        weather,
+        arrivedLine,
+        fallback: `${step.arrived ? `Finally made it to ${place}!` : `Strolling past ${place}.`} The ${time.partOfDay} air is ${weather.summary.toLowerCase()} and I'm feeling ${intent.mood}. ${weather.emoji}`,
       });
     }
 
@@ -480,6 +502,8 @@ export async function GET(request) {
       target_lat: target.lat,
       target_lon: target.lon,
       trip_distance_km: tripDistance,
+      mood,
+      beat: beatKind,
     });
 
     // Observability for the pre-gen hit rate (best-effort).
@@ -515,6 +539,8 @@ export async function GET(request) {
       chose_new_target: choseNewTarget,
       steered_by_vote: steeredByVote,
       cache_hit: cacheHit,
+      mood,
+      beat: beatKind,
     });
   } catch (err) {
     console.error(`[travel-tick] Tick failed: ${err?.message}`);

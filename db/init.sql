@@ -38,6 +38,10 @@ ALTER TABLE bot_state ADD COLUMN IF NOT EXISTS pending_story TEXT;
 ALTER TABLE bot_state ADD COLUMN IF NOT EXISTS pending_lat FLOAT;
 ALTER TABLE bot_state ADD COLUMN IF NOT EXISTS pending_lon FLOAT;
 ALTER TABLE bot_state ADD COLUMN IF NOT EXISTS llm_cache_hit BOOLEAN;
+-- Agent loop (spec 01/03): the Director's mood + the emergent beat that fired,
+-- recorded on each episode so memory (spec 02) can recall and call back to it.
+ALTER TABLE bot_state ADD COLUMN IF NOT EXISTS mood VARCHAR(40);
+ALTER TABLE bot_state ADD COLUMN IF NOT EXISTS beat VARCHAR(40);
 
 CREATE TABLE IF NOT EXISTS active_votes (
     id SERIAL PRIMARY KEY,
