@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { Trophy } from "lucide-react";
 
-const MEDALS = ["🥇", "🥈", "🥉"];
+const FD = "var(--font-display)";
+const FM = "var(--font-mono)";
+const MEDAL_BG = ["var(--marigold)", "var(--line-2)", "var(--elango-tint)"];
 
 /**
- * Compact "Top Supporters" leaderboard. Polls periodically and highlights the
- * current viewer's row. `me` is the viewer's handle; `refreshKey` bumps to force
- * an immediate refresh after the viewer contributes.
+ * "Top Supporters" board, styled into the Roadside Ledger system. Polls
+ * periodically and highlights the current viewer's row. `me` is the viewer's
+ * handle; `refreshKey` bumps to force an immediate refresh after a contribution.
  */
 export default function Leaderboard({ me = "", refreshKey = 0 }) {
   const [leaders, setLeaders] = useState([]);
@@ -36,58 +38,84 @@ export default function Leaderboard({ me = "", refreshKey = 0 }) {
   const mine = me.trim().toLowerCase();
 
   return (
-    <div className="rounded-2xl bg-white/95 p-4 shadow-sm ring-1 ring-black/5">
-      <h2 className="mb-3 inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
-        <Trophy className="h-4 w-4 text-amber-500" /> Top Supporters
-      </h2>
+    <div
+      style={{
+        background: "var(--card)",
+        border: "2px solid var(--ink)",
+        borderRadius: 13,
+        boxShadow: "5px 5px 0 var(--line-2)",
+        padding: "16px 18px",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 13 }}>
+        <Trophy className="h-[18px] w-[18px]" style={{ color: "var(--marigold)" }} />
+        <span style={{ fontFamily: FD, fontWeight: 700, fontSize: 15 }}>TOP SUPPORTERS</span>
+      </div>
 
       {leaders.length === 0 ? (
-        <p className="text-sm text-slate-400">
+        <p style={{ margin: 0, fontSize: 14, color: "var(--ink-soft)" }}>
           No supporters yet — buy Elango a coffee to claim the top spot! ☕
         </p>
       ) : (
-        <ol className="space-y-1.5">
+        <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
           {leaders.slice(0, 5).map((row, i) => {
             const isMe = row.username.toLowerCase() === mine;
             return (
-              <li
+              <div
                 key={row.username}
-                className={`flex items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-sm ${
-                  isMe ? "bg-emerald-50 ring-1 ring-emerald-200" : ""
-                }`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "10px 12px",
+                  borderRadius: 8,
+                  border: isMe ? "1.5px solid var(--alive)" : "1.5px solid var(--line-2)",
+                  background: isMe ? "var(--alive-tint)" : "transparent",
+                }}
               >
-                <span className="flex min-w-0 items-center gap-2">
-                  <span className="w-5 shrink-0 text-center">{MEDALS[i] ?? `${i + 1}`}</span>
-                  <span className={`truncate font-medium ${isMe ? "text-emerald-700" : "text-slate-700"}`}>
-                    {row.username}
-                    {isMe && <span className="ml-1 text-xs text-emerald-500">(you)</span>}
-                  </span>
+                <span
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: "50%",
+                    background: i < 3 ? MEDAL_BG[i] : "var(--card)",
+                    border: "1.5px solid var(--ink)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontFamily: FM,
+                    fontWeight: 700,
+                    fontSize: 12,
+                    flex: "none",
+                  }}
+                >
+                  {i + 1}
                 </span>
                 <span
-                  className="shrink-0 text-xs tabular-nums text-slate-400"
                   title={`☕ ${row.coffees} · 🚌 ${row.buses} · 🗳️ ${row.votes}`}
+                  style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: 14.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                 >
-                  {row.total} pts
+                  {row.username}
+                  {isMe && <span style={{ color: "var(--alive-ink)", fontWeight: 700, fontSize: 12.5 }}> (you)</span>}
                 </span>
-              </li>
+                <span style={{ fontFamily: FM, fontWeight: 700, fontSize: 13 }}>{row.total} pts</span>
+              </div>
             );
           })}
-        </ol>
+        </div>
       )}
 
-      {/* Patron gratitude ribbon — a SEPARATE signal from the ranking above, so
-          paying never buys a leaderboard spot. Dormant until real-money tips exist. */}
       {patrons.length > 0 && (
-        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/60 p-3">
-          <p className="mb-1.5 inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-amber-700">
-            ☕ Journey patrons
+        <div style={{ marginTop: 16, borderRadius: 10, border: "1.5px solid var(--marigold)", background: "var(--marigold-tint)", padding: 12 }}>
+          <p style={{ margin: "0 0 8px", fontFamily: FM, fontSize: 10.5, fontWeight: 700, letterSpacing: ".1em", color: "var(--ink)" }}>
+            ☕ JOURNEY PATRONS
           </p>
-          <div className="flex flex-wrap gap-1.5">
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
             {patrons.map((p) => (
               <span
                 key={p.username}
                 title={`${p.gifts} real-money gift${p.gifts > 1 ? "s" : ""} — thank you!`}
-                className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200"
+                style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "var(--card)", border: "1.5px solid var(--marigold)", borderRadius: 999, padding: "3px 10px", fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}
               >
                 💛 {p.username}
               </span>

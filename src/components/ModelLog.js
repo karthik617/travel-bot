@@ -1,15 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { X, Loader2, Cpu } from "lucide-react";
+import { Loader2, Cpu, Check, RotateCcw } from "lucide-react";
+import { ModalShell, ModalCloseButton } from "@/components/Diary";
+
+const FM = "var(--font-mono)";
+const FD = "var(--font-display)";
 
 /**
- * Observability panel: the most recent local-model calls, showing for each one
- * whether the REAL model answered or the deterministic FALLBACK kicked in, what
- * the call was for (kind), which model, and how long it took. Answers "is the
- * model actually driving this, or is it falling back?" at a glance.
- *
- * @param {{ open:boolean, onClose:()=>void }} props
+ * Observability panel: recent local-model calls, showing for each whether the
+ * REAL model answered or the deterministic FALLBACK kicked in, the call kind,
+ * the model, and how long it took.
  */
 export default function ModelLog({ open, onClose }) {
   const [calls, setCalls] = useState([]);
@@ -32,7 +33,6 @@ export default function ModelLog({ open, onClose }) {
     }
   }, []);
 
-  // Load on open, then poll while open so it feels live.
   useEffect(() => {
     if (!open) return undefined;
     load();
@@ -52,9 +52,9 @@ export default function ModelLog({ open, onClose }) {
   const fmtMs = (ms) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`);
   const ago = (iso) => {
     const s = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
-    if (s < 60) return `${s}s ago`;
-    if (s < 3600) return `${Math.round(s / 60)}m ago`;
-    return `${Math.round(s / 3600)}h ago`;
+    if (s < 60) return `${s}s`;
+    if (s < 3600) return `${Math.round(s / 60)}m`;
+    return `${Math.round(s / 3600)}h`;
   };
 
   if (!open) return null;
@@ -65,93 +65,85 @@ export default function ModelLog({ open, onClose }) {
   const modelPct = total ? Math.round((modelN / total) * 100) : 0;
 
   return (
-    <div
-      className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Model activity"
-    >
-      <div
-        className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-slate-50 shadow-2xl ring-1 ring-black/10"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="border-b border-slate-100 p-4">
-          <div className="flex items-center justify-between">
-            <h2 className="flex items-center gap-2 font-serif text-xl font-bold text-slate-900">
-              <Cpu className="h-5 w-5 text-emerald-600" /> Model Activity
-            </h2>
-            <button
-              onClick={onClose}
-              aria-label="Close model activity"
-              className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-          {/* Summary: how much the real model is driving things (last 24h) */}
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-            <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700 ring-1 ring-emerald-200">
-              ✅ model {modelN}
-            </span>
-            <span className="rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-700 ring-1 ring-amber-200">
-              ↩︎ fallback {fallbackN}
-            </span>
-            {total > 0 && (
-              <span className="text-slate-500">
-                {modelPct}% real-model · avg {fmtMs(summary.avg_model_ms ?? 0)} · last 24h
-              </span>
-            )}
-          </div>
+    <ModalShell onClose={onClose} label="Model activity" width={740}>
+      <div style={{ padding: "18px 20px", borderBottom: "2px solid var(--ink)", background: "var(--paper-2)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <Cpu className="h-[22px] w-[22px]" style={{ color: "var(--teal)" }} />
+          <h2 style={{ fontFamily: FD, fontWeight: 800, fontSize: 22, letterSpacing: "-.01em", margin: 0 }}>Model Activity</h2>
+          <span style={{ flex: 1 }} />
+          <ModalCloseButton onClose={onClose} label="Close model activity" />
         </div>
-
-        <div className="scroll-thin flex-1 overflow-y-auto p-3">
-          {loading && calls.length === 0 && (
-            <div className="flex items-center justify-center py-16 text-slate-400">
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading model calls…
-            </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 13, flexWrap: "wrap" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--alive-tint)", border: "1.5px solid var(--alive)", borderRadius: 6, padding: "4px 9px", fontFamily: FM, fontWeight: 700, fontSize: 11, color: "var(--alive-ink)" }}>
+            <Check className="h-3 w-3" /> model {modelN}
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--marigold-tint)", border: "1.5px solid var(--marigold)", borderRadius: 6, padding: "4px 9px", fontFamily: FM, fontWeight: 700, fontSize: 11, color: "var(--ink)" }}>
+            <RotateCcw className="h-3 w-3" /> fallback {fallbackN}
+          </span>
+          {total > 0 && (
+            <span style={{ fontFamily: FM, fontSize: 11, color: "var(--ink-soft)" }}>
+              {modelPct}% real-model · avg {fmtMs(summary.avg_model_ms ?? 0)} · last 24h
+            </span>
           )}
-
-          {!loading && calls.length === 0 && (
-            <p className="py-16 text-center text-sm text-slate-400">
-              No model calls recorded yet — they appear here as Elango thinks, chats and narrates.
-            </p>
-          )}
-
-          <ul className="space-y-1.5">
-            {calls.map((c) => {
-              const isModel = c.source === "model";
-              return (
-                <li
-                  key={c.id}
-                  className="flex items-start gap-3 rounded-lg border border-slate-100 bg-white px-3 py-2"
-                >
-                  <span
-                    className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                      isModel
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-amber-100 text-amber-700"
-                    }`}
-                  >
-                    {isModel ? "model" : "fallback"}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
-                      <span className="font-semibold text-slate-800">{c.kind}</span>
-                      <span className="text-slate-400">{c.model}</span>
-                      <span className="tabular-nums text-slate-400">· {fmtMs(c.ms)}</span>
-                      <span className="ml-auto text-slate-400">{ago(c.created_at)}</span>
-                    </div>
-                    {c.preview && (
-                      <p className="mt-0.5 truncate text-xs italic text-slate-500">{c.preview}</p>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
         </div>
       </div>
-    </div>
+
+      <div className="scroll-thin" style={{ flex: 1, overflowY: "auto", padding: "14px 18px 18px" }}>
+        {loading && calls.length === 0 && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "60px 0", color: "var(--ink-soft)" }}>
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading model calls…
+          </div>
+        )}
+
+        {!loading && calls.length === 0 && (
+          <p style={{ padding: "60px 0", textAlign: "center", fontSize: 14, color: "var(--ink-soft)" }}>
+            No model calls recorded yet — they appear here as Elango thinks, chats and narrates.
+          </p>
+        )}
+
+        {calls.map((c, i) => {
+          const isModel = c.source === "model";
+          return (
+            <div
+              key={c.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 11,
+                padding: "12px 4px",
+                borderBottom: i === calls.length - 1 ? "none" : "1.5px solid var(--line)",
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: FM,
+                  fontWeight: 700,
+                  fontSize: 9.5,
+                  letterSpacing: ".1em",
+                  background: isModel ? "var(--alive-tint)" : "var(--marigold-tint)",
+                  border: `1.5px solid ${isModel ? "var(--alive)" : "var(--marigold)"}`,
+                  borderRadius: 5,
+                  padding: "3px 7px",
+                  color: isModel ? "var(--alive-ink)" : "var(--ink)",
+                  flex: "none",
+                }}
+              >
+                {isModel ? "MODEL" : "FALLBACK"}
+              </span>
+              <span style={{ fontWeight: 700, fontSize: 13.5, flex: "none" }}>{c.kind}</span>
+              <span style={{ fontFamily: FM, fontSize: 11, color: "var(--ink-soft)", flex: "none" }}>
+                {c.model} · {fmtMs(c.ms)}
+              </span>
+              {c.preview && (
+                <span style={{ fontFamily: FM, fontSize: 12, fontStyle: "italic", color: "var(--ink-soft)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 40 }}>
+                  {c.preview}
+                </span>
+              )}
+              <span style={{ fontFamily: FM, fontSize: 10.5, color: "var(--ink-soft)", flex: "none", marginLeft: "auto" }}>{ago(c.created_at)}</span>
+            </div>
+          );
+        })}
+      </div>
+    </ModalShell>
   );
 }

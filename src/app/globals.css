@@ -2,33 +2,191 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Leaflet's stylesheet is imported in TravelMap.js. These rules make sure the
-   map container always fills its card and the page never scrolls horizontally. */
+/* ===================================================================
+   Elango — "Roadside Ledger" theme tokens.
+   Day values live on :root; night overrides apply when <html> carries
+   data-theme="night". A tiny no-flash script in layout.js sets the
+   attribute from the live IST hour before first paint.
+   =================================================================== */
+:root {
+  --paper: #f1ebdd;
+  --paper-2: #e7decb;
+  --card: #fbf8f1;
+  --ink: #20231c;
+  --ink-2: #3c3e33;
+  --ink-soft: #6e6a58;
+  --line: rgba(32, 35, 28, 0.13);
+  --line-2: rgba(32, 35, 28, 0.26);
+  --alive: #0f9a56;
+  --alive-ink: #0a6e3d;
+  --alive-tint: #dcefdf;
+  --elango: #d23b26;
+  --elango-tint: #f6e0d9;
+  --marigold: #de9a12;
+  --marigold-tint: #f6e7c4;
+  --teal: #1c6e69;
+  --teal-tint: #d3e4e1;
+  --sky: #fbe7c6;
+
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-body: "Hanken Grotesk", system-ui, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, monospace;
+}
+
+:root[data-theme="night"] {
+  --paper: #15201e;
+  --paper-2: #1b2826;
+  --card: #21302d;
+  --ink: #ece5d4;
+  --ink-2: #d2cdbd;
+  --ink-soft: #92998e;
+  --line: rgba(236, 229, 212, 0.14);
+  --line-2: rgba(236, 229, 212, 0.28);
+  --alive: #2bc076;
+  --alive-ink: #7de2ac;
+  --alive-tint: #173a2e;
+  --elango: #f1664b;
+  --elango-tint: #3a211b;
+  --marigold: #f0b43a;
+  --marigold-tint: #3a2e14;
+  --teal: #46a99a;
+  --teal-tint: #16322f;
+  --sky: #0e1a2a;
+}
+
 html,
 body {
   max-width: 100vw;
   overflow-x: hidden;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  @apply bg-slate-100 text-slate-900 antialiased;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background-color 0.6s ease, color 0.6s ease;
 }
 
-/* Ensure the Leaflet canvas inherits the rounded card corners cleanly. */
+::selection {
+  background: var(--alive);
+  color: #fff;
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(120, 116, 100, 0.4);
+  border-radius: 6px;
+}
+
+/* Leaflet map fills its card; keep its canvas behind UI chrome. */
 .leaflet-container {
   width: 100%;
   height: 100%;
-  background: #aadaff;
+  background: var(--teal-tint);
   z-index: 0;
 }
 
-/* Slim, unobtrusive scrollbars for the feed + chat columns. */
+/* Slim scrollbars for the feed + chat columns. */
 .scroll-thin::-webkit-scrollbar {
   width: 8px;
 }
 .scroll-thin::-webkit-scrollbar-thumb {
-  @apply rounded-full bg-slate-300;
+  background: rgba(120, 116, 100, 0.4);
+  border-radius: 6px;
 }
 .scroll-thin::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* ===== Animations (ported from the redesign spec) ===== */
+@keyframes alivePulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  70% {
+    transform: scale(3);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes aliveDot {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.22);
+  }
+}
+@keyframes march {
+  to {
+    background-position: 24px 0;
+  }
+}
+@keyframes marchY {
+  to {
+    background-position: 0 24px;
+  }
+}
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+@keyframes typingDot {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+@keyframes modalIn {
+  from {
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes toastIn {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes msgIn {
+  from {
+    transform: translateY(6px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.animate-fade-in {
+  animation: msgIn 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
 }

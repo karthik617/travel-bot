@@ -6,31 +6,38 @@ import "leaflet/dist/leaflet.css";
 
 // A self-contained DivIcon so we never depend on Leaflet's default marker PNGs
 // (which break under bundlers). The pulsing ring sells the "live tracking" feel.
+// A little "TN backpack card" marker matching the Roadside Ledger mascot mark,
+// with a pulsing alive-green halo to sell the live-tracking feel.
 const backpackerIcon = L.divIcon({
   className: "elango-marker",
   html: `
-    <div style="position:relative;width:34px;height:34px;">
+    <div style="position:relative;width:34px;height:40px;">
       <span style="
-        position:absolute;inset:0;border-radius:9999px;
-        background:rgba(16,185,129,0.35);
-        animation:elango-ping 1.6s cubic-bezier(0,0,0.2,1) infinite;">
+        position:absolute;top:50%;left:50%;width:40px;height:40px;
+        margin:-20px 0 0 -20px;border-radius:9999px;
+        background:#0F9A56;opacity:0.25;
+        animation:elango-ping 2.2s cubic-bezier(0,0,0.2,1) infinite;">
       </span>
       <span style="
-        position:absolute;top:7px;left:7px;width:20px;height:20px;
-        display:flex;align-items:center;justify-content:center;
-        font-size:14px;border-radius:9999px;
-        background:#059669;color:white;
-        box-shadow:0 0 0 3px white,0 1px 4px rgba(0,0,0,0.4);">🎒</span>
+        position:absolute;inset:0;display:flex;flex-direction:column;
+        border-radius:13px 13px 3px 3px;background:#FBF8F1;
+        border:2.5px solid #20231C;overflow:hidden;
+        box-shadow:2px 2px 0 #20231C;">
+        <span style="height:13px;background:#0F9A56;border-bottom:2px solid #20231C;"></span>
+        <span style="flex:1;display:flex;align-items:center;justify-content:center;">
+          <span style="width:6px;height:6px;border-radius:9999px;background:#D23B26;"></span>
+        </span>
+      </span>
     </div>
     <style>
       @keyframes elango-ping {
-        75%,100% { transform: scale(2); opacity: 0; }
+        70%,100% { transform: scale(2.6); opacity: 0; }
       }
     </style>
   `,
-  iconSize: [34, 34],
-  iconAnchor: [17, 17],
-  popupAnchor: [0, -16],
+  iconSize: [34, 40],
+  iconAnchor: [17, 20],
+  popupAnchor: [0, -18],
 });
 
 const TN_CENTER = [10.7905, 78.7047]; // Tamil Nadu center fallback.
@@ -129,9 +136,9 @@ export default function TravelMap({ lat, lon, city, landmark, path = [] }) {
 
     if (!haloRef.current) {
       haloRef.current = L.polyline(trail, {
-        color: "#34d399",
+        color: "#0F9A56",
         weight: 9,
-        opacity: 0.25,
+        opacity: 0.22,
         lineCap: "round",
       }).addTo(map);
     } else {
@@ -140,7 +147,7 @@ export default function TravelMap({ lat, lon, city, landmark, path = [] }) {
 
     if (!lineRef.current) {
       lineRef.current = L.polyline(trail, {
-        color: "#059669",
+        color: "#0F9A56",
         weight: 3,
         opacity: 0.9,
         dashArray: "1 8",

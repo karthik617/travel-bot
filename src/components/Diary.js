@@ -3,12 +3,79 @@
 import { useCallback, useEffect, useState } from "react";
 import { X, Share2, Loader2, BookOpen } from "lucide-react";
 
+const FD = "var(--font-display)";
+const FM = "var(--font-mono)";
+
+/** Shared modal shell for the Roadside Ledger panels. */
+function ModalShell({ onClose, label, children, width = 760 }) {
+  return (
+    <div
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={label}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 100,
+        background: "rgba(16,18,14,.55)",
+        backdropFilter: "blur(3px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "clamp(14px,4vh,48px) 16px",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width,
+          maxWidth: "100%",
+          maxHeight: "88vh",
+          display: "flex",
+          flexDirection: "column",
+          background: "var(--card)",
+          border: "2px solid var(--ink)",
+          borderRadius: 14,
+          boxShadow: "9px 9px 0 rgba(0,0,0,.32)",
+          animation: "modalIn .32s cubic-bezier(.2,.8,.2,1)",
+          overflow: "hidden",
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function ModalCloseButton({ onClose, label }) {
+  return (
+    <button
+      onClick={onClose}
+      aria-label={label}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: 34,
+        height: 34,
+        background: "var(--card)",
+        border: "2px solid var(--ink)",
+        boxShadow: "2px 2px 0 var(--ink)",
+        borderRadius: 8,
+        cursor: "pointer",
+        color: "var(--ink)",
+        flex: "none",
+      }}
+    >
+      <X className="h-[17px] w-[17px]" />
+    </button>
+  );
+}
+
 /**
- * A modal of Elango's diary — the nightly recaps the memory consolidation pass
- * writes "in his sleep" (Architecture Spec 02). Each entry is shareable, making
- * the diary a re-engagement + virality surface.
- *
- * @param {{ open:boolean, onClose:()=>void, onToast:(msg:string)=>void }} props
+ * Elango's diary — the nightly recaps the memory consolidation pass writes "in
+ * his sleep". Each entry is shareable, making the diary a re-engagement surface.
  */
 export default function Diary({ open, onClose, onToast }) {
   const [entries, setEntries] = useState([]);
@@ -21,7 +88,7 @@ export default function Diary({ open, onClose, onToast }) {
       const json = await res.json();
       if (json?.ok) setEntries(json.entries ?? []);
     } catch {
-      /* ignore — empty state renders */
+      /* ignore */
     } finally {
       setLoading(false);
     }
@@ -31,7 +98,6 @@ export default function Diary({ open, onClose, onToast }) {
     if (open) load();
   }, [open, load]);
 
-  // Close on Escape for accessibility.
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (e) => {
@@ -43,114 +109,107 @@ export default function Diary({ open, onClose, onToast }) {
 
   const fmtDay = (d) => {
     try {
-      return new Date(d).toLocaleDateString("en-IN", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-      });
+      return new Date(d).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" }).toUpperCase();
     } catch {
       return d;
     }
   };
 
   const share = async (entry) => {
-    const text =
-      `📔 From Elango's diary — ${fmtDay(entry.day)}:\n` +
-      `"${entry.text}"\n` +
-      `Follow his live journey across Tamil Nadu 👇`;
+    const text = `📔 From Elango's diary — ${fmtDay(entry.day)}:\n"${entry.text}"\nFollow his live journey across Tamil Nadu 👇`;
     const url = typeof window !== "undefined" ? window.location.origin : "";
     try {
-      if (navigator.share) {
-        await navigator.share({ title: "Elango's Diary", text, url });
-      } else {
+      if (navigator.share) await navigator.share({ title: "Elango's Diary", text, url });
+      else {
         await navigator.clipboard.writeText(`${text}\n${url}`);
         onToast?.("Diary entry copied to clipboard! 📋");
       }
     } catch {
-      /* user cancelled share — ignore */
+      /* cancelled */
     }
   };
 
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Elango's diary"
-    >
-      <div
-        className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-slate-50 shadow-2xl ring-1 ring-black/10"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between border-b border-slate-100 p-4">
-          <h2 className="flex items-center gap-2 font-serif text-xl font-bold text-slate-900">
-            📔 Elango&apos;s Diary
-            {entries.length > 0 && (
-              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
-                {entries.length} {entries.length === 1 ? "night" : "nights"}
-              </span>
-            )}
-          </h2>
-          <button
-            onClick={onClose}
-            aria-label="Close diary"
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="scroll-thin flex-1 overflow-y-auto p-4">
-          {loading && (
-            <div className="flex items-center justify-center py-16 text-slate-400">
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Opening the diary…
-            </div>
-          )}
-
-          {!loading && entries.length === 0 && (
-            <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50 ring-1 ring-amber-100">
-                <BookOpen className="h-7 w-7 text-amber-500" />
-              </div>
-              <p className="text-sm font-semibold text-slate-700">The diary is empty for now</p>
-              <p className="max-w-xs text-sm text-slate-400">
-                Each night as Elango rests, he writes up the day&apos;s wanderings here. Check
-                back after his first night on the road. 🌙
-              </p>
-            </div>
-          )}
-
-          {!loading && entries.length > 0 && (
-            <ol className="space-y-4">
-              {entries.map((entry, i) => (
-                <li
-                  key={entry.id}
-                  className="rounded-xl border border-slate-200 bg-gradient-to-br from-amber-50/60 to-white p-4"
-                >
-                  <div className="mb-1.5 flex items-center justify-between gap-2">
-                    <p className="text-xs font-bold uppercase tracking-wide text-amber-700">
-                      {i === 0 ? "Latest · " : ""}
-                      {fmtDay(entry.day)}
-                    </p>
-                    <button
-                      onClick={() => share(entry)}
-                      className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-slate-500 transition hover:bg-amber-100/60 hover:text-amber-800"
-                    >
-                      <Share2 className="h-3.5 w-3.5" /> Share
-                    </button>
-                  </div>
-                  <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">
-                    {entry.text}
-                  </p>
-                </li>
-              ))}
-            </ol>
-          )}
-        </div>
+    <ModalShell onClose={onClose} label="Elango's diary">
+      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "18px 20px", borderBottom: "2px solid var(--ink)", background: "var(--paper-2)" }}>
+        <BookOpen className="h-[22px] w-[22px]" style={{ color: "var(--marigold)" }} />
+        <h2 style={{ fontFamily: FD, fontWeight: 800, fontSize: 22, letterSpacing: "-.01em", margin: 0 }}>Elango&apos;s Diary</h2>
+        {entries.length > 0 && (
+          <span style={{ fontFamily: FM, fontSize: 11, letterSpacing: ".1em", background: "var(--marigold-tint)", border: "1.5px solid var(--marigold)", borderRadius: 6, padding: "4px 9px", color: "var(--ink)" }}>
+            {entries.length} {entries.length === 1 ? "NIGHT" : "NIGHTS"}
+          </span>
+        )}
+        <span style={{ flex: 1 }} />
+        <ModalCloseButton onClose={onClose} label="Close diary" />
       </div>
-    </div>
+
+      <div className="scroll-thin" style={{ flex: 1, overflowY: "auto", padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+        {loading && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "60px 0", color: "var(--ink-soft)" }}>
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Opening the diary…
+          </div>
+        )}
+
+        {!loading && entries.length === 0 && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "60px 0", textAlign: "center" }}>
+            <div style={{ display: "flex", height: 64, width: 64, alignItems: "center", justifyContent: "center", borderRadius: 16, background: "var(--marigold-tint)", border: "2px solid var(--marigold)" }}>
+              <BookOpen className="h-7 w-7" style={{ color: "var(--marigold)" }} />
+            </div>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>The diary is empty for now</p>
+            <p style={{ margin: 0, maxWidth: 320, fontSize: 14, color: "var(--ink-soft)" }}>
+              Each night as Elango rests, he writes up the day&apos;s wanderings here. Check back after his first night on the road. 🌙
+            </p>
+          </div>
+        )}
+
+        {!loading &&
+          entries.map((entry, i) => {
+            const latest = i === 0;
+            return (
+              <div
+                key={entry.id}
+                style={{
+                  border: latest ? "2px solid var(--alive)" : "1.5px solid var(--line-2)",
+                  borderRadius: 11,
+                  padding: "18px 20px",
+                  background: latest ? "var(--alive-tint)" : "transparent",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 11 }}>
+                  <span style={{ fontFamily: FM, fontWeight: 700, fontSize: 11, letterSpacing: ".1em", color: latest ? "var(--alive-ink)" : "var(--elango)" }}>
+                    {latest ? "LATEST · " : ""}
+                    {fmtDay(entry.day)}
+                  </span>
+                  <span style={{ flex: 1 }} />
+                  <button
+                    onClick={() => share(entry)}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      background: "transparent",
+                      border: `1.5px solid ${latest ? "var(--alive)" : "var(--line-2)"}`,
+                      borderRadius: 6,
+                      padding: "5px 10px",
+                      cursor: "pointer",
+                      fontFamily: FM,
+                      fontWeight: 700,
+                      fontSize: 10.5,
+                      color: latest ? "var(--alive-ink)" : "var(--ink-soft)",
+                    }}
+                  >
+                    <Share2 className="h-3 w-3" /> SHARE
+                  </button>
+                </div>
+                <p style={{ margin: 0, fontSize: 16, lineHeight: 1.6, color: latest ? "var(--ink)" : "var(--ink-2)", whiteSpace: "pre-line" }}>{entry.text}</p>
+              </div>
+            );
+          })}
+      </div>
+    </ModalShell>
   );
 }
+
+export { ModalShell };

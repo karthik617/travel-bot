@@ -213,13 +213,23 @@ export default function Soundscape({ partOfDay = "afternoon", weather = "" }) {
     <button
       onClick={() => (on ? stop() : start())}
       title={on ? "Mute ambient sounds" : "Play ambient sounds"}
-      className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold shadow-sm ring-1 transition active:scale-95 ${
-        on
-          ? "bg-violet-600 text-white ring-violet-600 hover:bg-violet-700"
-          : "bg-white/90 text-slate-700 ring-black/5 hover:bg-white"
-      }`}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 7,
+        background: on ? "var(--teal)" : "transparent",
+        border: on ? "1.5px solid var(--teal)" : "1.5px solid var(--line-2)",
+        borderRadius: 7,
+        padding: "7px 12px",
+        cursor: "pointer",
+        fontSize: 13,
+        fontWeight: on ? 700 : 400,
+        color: on ? "#fff" : "var(--ink-2)",
+        whiteSpace: "nowrap",
+        flex: "none",
+      }}
     >
-      {on ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+      {on ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
       {on ? "Sound on" : "Ambience"}
     </button>
   );
