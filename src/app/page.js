@@ -1264,6 +1264,22 @@ export default function Home() {
                         )}
                       </div>
                       <p className="text-sm leading-relaxed text-slate-700">{row.story}</p>
+                      {row.story_source && (
+                        <p
+                          className="mt-1.5 text-[10px] font-medium"
+                          title={
+                            row.story_source === "model"
+                              ? "This dispatch was written live by the local model"
+                              : "The model timed out / was unavailable, so a template was used"
+                          }
+                        >
+                          {row.story_source === "model" ? (
+                            <span className="text-emerald-600">✨ live model</span>
+                          ) : (
+                            <span className="text-amber-600">↩︎ template fallback</span>
+                          )}
+                        </p>
+                      )}
                     </div>
                   </li>
                 ))}

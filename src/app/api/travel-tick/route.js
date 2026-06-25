@@ -52,14 +52,18 @@ const ELANGO_SYS =
 const clampEnergy = (n) => Math.max(0, Math.min(100, Math.round(n)));
 const clampWallet = (n) => Math.max(0, Math.round(n));
 
+// generateFromOllama returns the exact `fallback` string when the model didn't
+// answer, so identity against the fallback tells us this dispatch's provenance.
+const srcOf = (text, fallback) => (text === fallback ? "fallback" : "model");
+
 /** Insert a fully-populated bot_state row and return it. */
 async function insertState(r) {
   const { rows } = await query(
     `INSERT INTO bot_state
        (lat, lon, current_city, landmark_name, story, energy, wallet,
         image_url, weather, time_of_day, activity,
-        target_name, target_lat, target_lon, trip_distance_km, mood, beat, observation)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+        target_name, target_lat, target_lon, trip_distance_km, mood, beat, observation, story_source)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
      RETURNING *`,
     [
       r.lat,
@@ -80,6 +84,7 @@ async function insertState(r) {
       r.mood ?? null,
       r.beat ?? null,
       r.observation ?? null,
+      r.story_source ?? null,
     ]
   );
   return rows[0];
@@ -269,12 +274,13 @@ async function prebuildNextStory(insertedRow, target, time) {
       fetchLandmarkImage(landmark, city, next.lat, next.lon),
     ]);
     const place = formatLocation(landmark, city);
+    const pregenFallback = `Strolling past ${place}. The ${time.partOfDay} air is ${weather.summary.toLowerCase()}. ${weather.emoji}`;
     const story = await generateFromOllama({
       system: ELANGO_SYS,
       user:
         `You're trekking toward ${target.name}, right now passing ${place}. It's ${time.partOfDay} in Tamil Nadu and the weather is ${weather.summary}. ` +
         `Write two fresh, vivid sentences about THIS exact spot right now — what you see, hear or smell. Vary your imagery; sound like a real person, never an AI.`,
-      fallback: `Strolling past ${place}. The ${time.partOfDay} air is ${weather.summary.toLowerCase()}. ${weather.emoji}`,
+      fallback: pregenFallback,
       kind: "pregen",
     });
     const payload = JSON.stringify({
@@ -282,6 +288,7 @@ async function prebuildNextStory(insertedRow, target, time) {
       landmark,
       weather: `${weather.emoji} ${weather.summary}`,
       image,
+      source: srcOf(story, pregenFallback),
     });
     await query(
       "UPDATE bot_state SET pending_story = $1, pending_lat = $2, pending_lon = $3 WHERE id = $4",
@@ -320,10 +327,11 @@ export async function GET(request) {
       ]);
 
       const place = formatLocation(landmark, cityNow);
+      const restFallback = `Elango unrolls his mat near ${place}; the night is ${weather.summary.toLowerCase()} and still. He yawns, finishes ${time.mealHint}, and drifts off under the stars. 😴`;
       const story = await generateFromOllama({
         system: ELANGO_SYS,
         user: `It's late night (${time.clock}) near ${place}, Tamil Nadu, and the weather is ${weather.summary}. You're winding down with ${time.mealHint} under ${time.vibe}. Describe settling in to rest for the night in two cozy, human sentences.`,
-        fallback: `Elango unrolls his mat near ${place}; the night is ${weather.summary.toLowerCase()} and still. He yawns, finishes ${time.mealHint}, and drifts off under the stars. 😴`,
+        fallback: restFallback,
         kind: "rest",
       });
 
@@ -343,6 +351,7 @@ export async function GET(request) {
         target_lat: latest.target_lat,
         target_lon: latest.target_lon,
         trip_distance_km: tripBase,
+        story_source: srcOf(story, restFallback),
       });
 
       // He rests → his memory consolidates "in his sleep" (spec 02). Detached so
@@ -361,10 +370,11 @@ export async function GET(request) {
       ]);
 
       const place = formatLocation(landmark, cityNow);
+      const exhFallback = `Aiyo, Elango is completely wiped out near ${place} — legs like jelly, can't take another step without a coffee! He flops into the shade and waits, hoping a kind soul sends some energy his way. ☕😮‍💨`;
       const story = await generateFromOllama({
         system: ELANGO_SYS,
         user: `Your energy is completely drained and you've slumped down near ${place}, Tamil Nadu, too exhausted to walk another step. It's ${time.partOfDay} and the weather is ${weather.summary}. Describe needing rest and hoping a kind viewer sends a coffee, in two weary but good-humoured sentences.`,
-        fallback: `Aiyo, Elango is completely wiped out near ${place} — legs like jelly, can't take another step without a coffee! He flops into the shade and waits, hoping a kind soul sends some energy his way. ☕😮‍💨`,
+        fallback: exhFallback,
         kind: "exhausted",
       });
 
@@ -384,6 +394,7 @@ export async function GET(request) {
         target_lat: latest.target_lat,
         target_lon: latest.target_lon,
         trip_distance_km: tripBase,
+        story_source: srcOf(story, exhFallback),
       });
 
       return NextResponse.json({ ok: true, state: inserted, exhausted: true });
@@ -452,10 +463,12 @@ export async function GET(request) {
     let mood = null;     // Director's mood for this episode (spec 01 → spec 02)
     let beatKind = null; // emergent beat that fired, if any (spec 03)
     let observation = null; // what the eyes organ saw, if it was woken (spec 01 cold)
+    let storySource = null; // 'model' | 'fallback' for this dispatch
 
     if (cache) {
       ({ story, landmark, image } = cache);
       weatherStr = cache.weather;
+      storySource = cache.source ?? null;
       cacheHit = true;
     } else {
       landmark = step.arrived ? target.name : await fetchNearbyLandmark(step.lat, step.lon, city);
@@ -492,6 +505,7 @@ export async function GET(request) {
         observation = await eyes(image, place);
       }
 
+      const storyFallback = `${step.arrived ? `Finally made it to ${place}!` : `Strolling past ${place}.`} The ${time.partOfDay} air is ${weather.summary.toLowerCase()} and I'm feeling ${intent.mood}. ${weather.emoji}`;
       story = await narrate({
         intent,
         place,
@@ -499,8 +513,9 @@ export async function GET(request) {
         weather,
         arrivedLine,
         observation,
-        fallback: `${step.arrived ? `Finally made it to ${place}!` : `Strolling past ${place}.`} The ${time.partOfDay} air is ${weather.summary.toLowerCase()} and I'm feeling ${intent.mood}. ${weather.emoji}`,
+        fallback: storyFallback,
       });
+      storySource = srcOf(story, storyFallback);
     }
 
     const tripDistance = Number((tripBase + step.stepKm).toFixed(1));
@@ -523,6 +538,7 @@ export async function GET(request) {
       mood,
       beat: beatKind,
       observation,
+      story_source: storySource,
     });
 
     // Observability for the pre-gen hit rate (best-effort).
@@ -676,6 +692,7 @@ export async function POST(request) {
         target_lat: latest.target_lat,
         target_lon: latest.target_lon,
         trip_distance_km: Number(latest.trip_distance_km ?? 0),
+        story_source: srcOf(story, coffeeFallback),
       });
       await logSupport(username, "coffee", { sessionId: body?.sessionId });
       return NextResponse.json({ ok: true, action, state: inserted });
@@ -710,10 +727,11 @@ export async function POST(request) {
     ]);
 
     const place = formatLocation(landmark, city);
+    const busFallback = `The rattling government bus drops Elango right by ${place}! The ${time.partOfDay} air is ${weather.summary.toLowerCase()} and thick with the smell of ${time.mealHint}. ${weather.emoji}`;
     const story = await generateFromOllama({
       system: ELANGO_SYS,
       user: `A generous stream follower just funded your local bus ticket, so you hopped off near ${place}, Tamil Nadu. It's ${time.partOfDay} (${time.clock}) and the weather is ${weather.summary}. Describe arriving here in two excited, conversational sentences with sensory details.`,
-      fallback: `The rattling government bus drops Elango right by ${place}! The ${time.partOfDay} air is ${weather.summary.toLowerCase()} and thick with the smell of ${time.mealHint}. ${weather.emoji}`,
+      fallback: busFallback,
       kind: "bus",
     });
 
@@ -733,6 +751,7 @@ export async function POST(request) {
       target_lat: target.lat,
       target_lon: target.lon,
       trip_distance_km: Number((Number(latest.trip_distance_km ?? 0) + jumpKm).toFixed(1)),
+      story_source: srcOf(story, busFallback),
     });
 
     await logSupport(username, "bus", { sessionId: body?.sessionId });

@@ -44,6 +44,8 @@ ALTER TABLE bot_state ADD COLUMN IF NOT EXISTS mood VARCHAR(40);
 ALTER TABLE bot_state ADD COLUMN IF NOT EXISTS beat VARCHAR(40);
 -- What the "eyes" vision organ actually saw in the spot's photo (spec 01 cold lane).
 ALTER TABLE bot_state ADD COLUMN IF NOT EXISTS observation TEXT;
+-- Provenance of this dispatch's story: 'model' (live LLM) or 'fallback' (template).
+ALTER TABLE bot_state ADD COLUMN IF NOT EXISTS story_source VARCHAR(12);
 
 CREATE TABLE IF NOT EXISTS active_votes (
     id SERIAL PRIMARY KEY,
