@@ -106,7 +106,7 @@ function dayTheme(h) {
   if (h >= 21 || h < 5) {
     return {
       key: "night",
-      gradient: "from-slate-900 via-indigo-950 to-slate-900",
+      gradient: "from-[#1B2030] via-[#2A2440] to-[#1B2030]",
       heading: "text-white",
       sub: "text-slate-300",
       emoji: "🌙",
@@ -116,7 +116,7 @@ function dayTheme(h) {
   if (h < 11) {
     return {
       key: "morning",
-      gradient: "from-amber-100 via-sky-100 to-sky-200",
+      gradient: "from-[#F2D9A8] via-[#E7DFCE] to-[#DCE7DD]",
       heading: "text-slate-900",
       sub: "text-slate-600",
       emoji: "🌅",
@@ -126,7 +126,7 @@ function dayTheme(h) {
   if (h < 16) {
     return {
       key: "afternoon",
-      gradient: "from-sky-200 via-sky-100 to-blue-100",
+      gradient: "from-[#E7DFCE] via-[#E9E2D2] to-[#D8E6DC]",
       heading: "text-slate-900",
       sub: "text-slate-600",
       emoji: "☀️",
@@ -135,7 +135,7 @@ function dayTheme(h) {
   }
   return {
     key: "evening",
-    gradient: "from-orange-200 via-rose-200 to-indigo-300",
+    gradient: "from-[#E6B98C] via-[#D3A7A2] to-[#9A93B0]",
     heading: "text-slate-900",
     sub: "text-slate-700",
     emoji: "🌆",
@@ -795,38 +795,42 @@ export default function Home() {
         {/* Hero status card — answers "what is this + how is he" in one glance,
             with a single context-sensitive CTA. */}
         {state && (
-          <section className="mb-6 rounded-2xl bg-white/95 p-5 shadow-sm ring-1 ring-black/5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-4">
-                <div className="text-4xl leading-none sm:text-5xl">{activity.emoji}</div>
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-600">
-                    🔴 Live · Day {stats.daysOnRoad}
-                  </p>
-                  <h2 className="text-lg font-bold leading-tight text-slate-900 sm:text-xl">
-                    Elango is an AI backpacker walking across Tamil Nadu
-                  </h2>
-                  <p className="mt-0.5 text-sm text-slate-600">
-                    Right now he&apos;s {moodPhrase} at{" "}
-                    <span className="font-medium text-slate-800">{formatLocation(landmark, city)}</span> —{" "}
-                    {animEnergy}% energy{weather ? `, ${weather}` : ""}.
-                  </p>
-                </div>
+          <section className="mb-6 overflow-hidden rounded-2xl bg-[#1B2030] p-5 shadow-lg ring-1 ring-black/20 sm:p-6">
+            {/* live departures board */}
+            <div className="flex items-center justify-between border-b border-dashed border-white/15 pb-3">
+              <span className="font-serif text-xl text-[#F3EDE0] sm:text-2xl">🎒 Elango</span>
+              <span className="inline-flex items-center gap-2 font-mono text-[11px] tracking-[0.16em] text-[#5FB8AC]">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#5BD6A6] opacity-75" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#5BD6A6]" />
+                </span>
+                LIVE · DAY {stats.daysOnRoad}
+              </span>
+            </div>
+            <div className="mt-1 font-mono">
+              <div className="grid grid-cols-[58px_1fr_auto] items-baseline gap-3 border-b border-white/5 py-2.5 sm:grid-cols-[72px_1fr_auto]">
+                <span className="text-[11px] uppercase tracking-[0.12em] text-[#5FB8AC]">Now</span>
+                <span className="truncate text-[15px] text-[#F3EDE0]">{activity.emoji} {moodPhrase} · {formatLocation(landmark, city)}</span>
+                <span className="tabular-nums text-[15px] text-[#DC8A12]">{hasTime ? clock : "--:--"}</span>
               </div>
+              <div className="grid grid-cols-[58px_1fr_auto] items-center gap-3 py-2.5 sm:grid-cols-[72px_1fr_auto]">
+                <span className="text-[11px] uppercase tracking-[0.12em] text-[#5FB8AC]">Energy</span>
+                <span className="h-2 overflow-hidden rounded-full bg-white/10">
+                  <span className={`block h-full rounded-full transition-all duration-700 ${energyColor}`} style={{ width: `${animEnergy}%` }} />
+                </span>
+                <span className="tabular-nums text-[15px] text-[#DC8A12]">{animEnergy}%{weather ? `  ${weather}` : ""}</span>
+              </div>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <span className="hidden font-sans text-xs text-white/45 sm:block">An autonomous AI backpacker, walking the length of Tamil Nadu in real time.</span>
               <button
                 onClick={heroCta.onClick}
                 disabled={actionBusy !== ""}
-                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-[#2A1B05] shadow-sm transition hover:bg-amber-400 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {actionBusy !== "" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 {heroCta.label}
               </button>
-            </div>
-            <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-slate-200">
-              <div
-                className={`h-full rounded-full transition-all duration-700 ${energyColor}`}
-                style={{ width: `${animEnergy}%` }}
-              />
             </div>
           </section>
         )}
@@ -834,7 +838,7 @@ export default function Home() {
         {/* Header */}
         <header className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className={`text-2xl font-bold tracking-tight md:text-3xl ${theme.heading}`}>
+            <h1 className={`font-serif text-2xl font-bold tracking-tight md:text-3xl ${theme.heading}`}>
               🎒 Elango — Live from Tamil Nadu
             </h1>
             <p className={`mt-1 flex flex-wrap items-center gap-2 text-sm ${theme.sub}`}>
