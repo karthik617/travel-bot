@@ -61,13 +61,18 @@ export async function consolidate() {
       .slice(-8)
       .map((e) => `- ${e.landmark_name || e.current_city}${e.beat ? ` [${e.beat}]` : ""}: ${(e.story || "").slice(0, 100)}`)
       .join("\n");
-    const diary = await generateFromOllama({
+    const rawDiary = await generateFromOllama({
       system:
-        "You are Elango, an Indian backpacker keeping a travel diary. Write a warm, first-person recap of your day in 2-3 sentences. Never sound like an AI.",
-      user: `Today's moments:\n${bullets}\n\nWrite the diary entry now.`,
+        "You are Elango, an Indian backpacker keeping a travel diary. Write a warm, first-person recap of your day in 2-3 sentences. Write ONLY the diary entry itself — no preamble, no headings, no bullet list.",
+      user: `Here are today's moments:\n${bullets}\n\nNow write today's diary entry.`,
       fallback: `Wandered through ${cities.slice(0, 3).join(", ") || "the road"} today${beats.length ? `, and what a day — ${beats.join(", ")}` : ""}. Tired feet, full heart. 🎒`,
       temperature: 0.8,
     });
+    // Strip any echoed prompt scaffolding the small model may prepend.
+    const diary = rawDiary
+      .replace(/^\s*(here are\s+)?today'?s moments:?\s*/i, "")
+      .replace(/^\s*(diary entry|today'?s entry):?\s*/i, "")
+      .trim();
 
     await query(
       "INSERT INTO diary_entries (day, text, source_to) VALUES (CURRENT_DATE, $1, $2)",
