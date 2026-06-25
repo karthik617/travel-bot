@@ -82,11 +82,11 @@ export default function Diary({ open, onClose, onToast }) {
       aria-label="Elango's diary"
     >
       <div
-        className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-slate-50 shadow-2xl ring-1 ring-black/10"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-slate-100 p-4">
-          <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+          <h2 className="flex items-center gap-2 font-serif text-xl font-bold text-slate-900">
             📔 Elango&apos;s Diary
             {entries.length > 0 && (
               <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
@@ -128,7 +128,7 @@ export default function Diary({ open, onClose, onToast }) {
               {entries.map((entry, i) => (
                 <li
                   key={entry.id}
-                  className="rounded-xl border border-slate-200 bg-gradient-to-br from-amber-50/50 to-white p-4"
+                  className="rounded-xl border border-slate-200 bg-gradient-to-br from-amber-50/60 to-white p-4"
                 >
                   <div className="mb-1.5 flex items-center justify-between gap-2">
                     <p className="text-xs font-bold uppercase tracking-wide text-amber-700">

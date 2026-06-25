@@ -73,12 +73,12 @@ export default function ModelLog({ open, onClose }) {
       aria-label="Model activity"
     >
       <div
-        className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-slate-50 shadow-2xl ring-1 ring-black/10"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="border-b border-slate-100 p-4">
           <div className="flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+            <h2 className="flex items-center gap-2 font-serif text-xl font-bold text-slate-900">
               <Cpu className="h-5 w-5 text-emerald-600" /> Model Activity
             </h2>
             <button
