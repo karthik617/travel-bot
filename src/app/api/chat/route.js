@@ -139,6 +139,7 @@ export async function POST(request) {
             user: `${username} says: ${message}`,
             fallback,
             temperature: 0.85,
+            kind: "chat",
           });
         } catch (e) {
           console.warn(`[chat] async generate failed: ${e?.message}`);

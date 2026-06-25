@@ -275,6 +275,7 @@ async function prebuildNextStory(insertedRow, target, time) {
         `You're trekking toward ${target.name}, right now passing ${place}. It's ${time.partOfDay} in Tamil Nadu and the weather is ${weather.summary}. ` +
         `Write two fresh, vivid sentences about THIS exact spot right now — what you see, hear or smell. Vary your imagery; sound like a real person, never an AI.`,
       fallback: `Strolling past ${place}. The ${time.partOfDay} air is ${weather.summary.toLowerCase()}. ${weather.emoji}`,
+      kind: "pregen",
     });
     const payload = JSON.stringify({
       story,
@@ -323,6 +324,7 @@ export async function GET(request) {
         system: ELANGO_SYS,
         user: `It's late night (${time.clock}) near ${place}, Tamil Nadu, and the weather is ${weather.summary}. You're winding down with ${time.mealHint} under ${time.vibe}. Describe settling in to rest for the night in two cozy, human sentences.`,
         fallback: `Elango unrolls his mat near ${place}; the night is ${weather.summary.toLowerCase()} and still. He yawns, finishes ${time.mealHint}, and drifts off under the stars. 😴`,
+        kind: "rest",
       });
 
       const inserted = await insertState({
@@ -363,6 +365,7 @@ export async function GET(request) {
         system: ELANGO_SYS,
         user: `Your energy is completely drained and you've slumped down near ${place}, Tamil Nadu, too exhausted to walk another step. It's ${time.partOfDay} and the weather is ${weather.summary}. Describe needing rest and hoping a kind viewer sends a coffee, in two weary but good-humoured sentences.`,
         fallback: `Aiyo, Elango is completely wiped out near ${place} — legs like jelly, can't take another step without a coffee! He flops into the shade and waits, hoping a kind soul sends some energy his way. ☕😮‍💨`,
+        kind: "exhausted",
       });
 
       const inserted = await insertState({
@@ -655,6 +658,7 @@ export async function POST(request) {
         user: `A kind viewer just bought you a hot South-Indian filter coffee while you're at ${place}, Tamil Nadu${weatherText ? ` (${weatherText})` : ""}. In two cheerful, grateful sentences, describe the lift it gives you and get back on the road. Vary your words; sound like a real person, not an AI.`,
         fallback: coffeeFallback,
         temperature: 0.85,
+        kind: "coffee",
       });
       const inserted = await insertState({
         lat: latest.lat,
@@ -710,6 +714,7 @@ export async function POST(request) {
       system: ELANGO_SYS,
       user: `A generous stream follower just funded your local bus ticket, so you hopped off near ${place}, Tamil Nadu. It's ${time.partOfDay} (${time.clock}) and the weather is ${weather.summary}. Describe arriving here in two excited, conversational sentences with sensory details.`,
       fallback: `The rattling government bus drops Elango right by ${place}! The ${time.partOfDay} air is ${weather.summary.toLowerCase()} and thick with the smell of ${time.mealHint}. ${weather.emoji}`,
+      kind: "bus",
     });
 
     const inserted = await insertState({

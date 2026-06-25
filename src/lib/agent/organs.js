@@ -90,6 +90,7 @@ export async function narrate({ intent, place, time, weather, arrivedLine, obser
     user,
     fallback,
     temperature: 0.85,
+    kind: intent.beat ? `story:${intent.beat.kind}` : "story",
   });
 }
 

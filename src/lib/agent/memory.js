@@ -67,6 +67,7 @@ export async function consolidate() {
       user: `Here are today's moments:\n${bullets}\n\nNow write today's diary entry.`,
       fallback: `Wandered through ${cities.slice(0, 3).join(", ") || "the road"} today${beats.length ? `, and what a day — ${beats.join(", ")}` : ""}. Tired feet, full heart. 🎒`,
       temperature: 0.8,
+      kind: "diary",
     });
     // Strip any echoed prompt scaffolding the small model may prepend.
     const diary = rawDiary

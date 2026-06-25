@@ -187,6 +187,20 @@ CREATE TABLE IF NOT EXISTS diary_entries (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Observability: one row per local-model call, recording whether the real model
+-- answered or the deterministic fallback kicked in, the latency, and what for.
+CREATE TABLE IF NOT EXISTS model_calls (
+    id SERIAL PRIMARY KEY,
+    kind VARCHAR(30) NOT NULL,
+    model VARCHAR(60),
+    source VARCHAR(12) NOT NULL,   -- 'model' | 'fallback'
+    ms INT,
+    ok BOOLEAN DEFAULT TRUE,
+    preview TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_model_calls_id_desc ON model_calls (id DESC);
+
 -- Seed Elango at Chennai's Marina Beach, but only if the journey is empty.
 INSERT INTO bot_state (lat, lon, current_city, landmark_name, story, energy, wallet)
 SELECT

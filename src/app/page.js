@@ -22,9 +22,11 @@ import {
   Bell,
   BellOff,
   BookOpen,
+  Cpu,
 } from "lucide-react";
 import Scrapbook from "@/components/Scrapbook";
 import Diary from "@/components/Diary";
+import ModelLog from "@/components/ModelLog";
 import Leaderboard from "@/components/Leaderboard";
 import Soundscape from "@/components/Soundscape";
 import { formatLocation, haversineKm } from "@/lib/journey";
@@ -307,6 +309,7 @@ export default function Home() {
   const [nowMs, setNowMs] = useState(null);
   const [scrapbookOpen, setScrapbookOpen] = useState(false);
   const [diaryOpen, setDiaryOpen] = useState(false);
+  const [modelLogOpen, setModelLogOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [viewers, setViewers] = useState(1);
   const [unseen, setUnseen] = useState(0);
@@ -862,6 +865,15 @@ export default function Home() {
               <BookOpen className="h-4 w-4 text-amber-600" /> Diary
             </button>
 
+            {/* Model activity (observability) */}
+            <button
+              onClick={() => setModelLogOpen(true)}
+              title="See whether Elango's words came from the live model or a fallback"
+              className="inline-flex items-center gap-2 rounded-lg bg-white/90 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-black/5 transition hover:bg-white active:scale-95"
+            >
+              <Cpu className="h-4 w-4 text-emerald-600" /> Models
+            </button>
+
             {/* Live viewer count */}
             <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/90 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-black/5">
               👀 {viewers} watching
@@ -1370,6 +1382,7 @@ export default function Home() {
 
       <Scrapbook open={scrapbookOpen} onClose={() => setScrapbookOpen(false)} onToast={notify} />
       <Diary open={diaryOpen} onClose={() => setDiaryOpen(false)} onToast={notify} />
+      <ModelLog open={modelLogOpen} onClose={() => setModelLogOpen(false)} />
 
       {/* Mobile-only quick jump to the chat (the marquee feature otherwise sits
           below the entire feed on small screens). */}

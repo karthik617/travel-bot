@@ -143,6 +143,7 @@ export async function chooseNextDestination(candidates, ctx) {
     fallback: "",
     timeoutMs: 20000,
     temperature: 0.7,
+    kind: "destination",
   });
 
   const match = String(raw).match(/\d+/);

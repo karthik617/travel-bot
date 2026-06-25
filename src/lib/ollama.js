@@ -6,6 +6,8 @@
 // <|im_start|>/<|im_end|> tokens ourselves (raw: true) we get full control over
 // the system + user framing while still using the generate API.
 
+import { recordModelCall } from "@/lib/trace";
+
 const ENDPOINT = process.env.LOCAL_LLM_ENDPOINT || "http://localhost:11434";
 const MODEL = process.env.LOCAL_LLM_MODEL || "qwen2.5:7b";
 // Separate small vision model for the "eyes" organ (Architecture Spec 01, cold
@@ -53,9 +55,14 @@ export async function generateFromOllama({
   fallback,
   timeoutMs = DEFAULT_TIMEOUT_MS,
   temperature = 0.8,
+  kind = "text",
 }) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const startedAt = Date.now();
+  // Record whether the real model answered or we fell back, + latency (best-effort).
+  const trace = (source, text) =>
+    recordModelCall({ kind, model: MODEL, source, ms: Date.now() - startedAt, ok: source === "model", preview: text });
 
   try {
     // Use /api/chat so Ollama applies each model's OWN chat template — this is
@@ -81,14 +88,21 @@ export async function generateFromOllama({
 
     if (!res.ok) {
       console.warn(`[ollama] Non-OK response (${res.status}); using fallback.`);
+      trace("fallback", `non-OK ${res.status}`);
       return fallback;
     }
 
     const data = await res.json();
     const text = (data?.message?.content ?? "").trim();
-    return text.length > 0 ? text : fallback;
+    if (text.length > 0) {
+      trace("model", text);
+      return text;
+    }
+    trace("fallback", "empty response");
+    return fallback;
   } catch (err) {
     console.warn(`[ollama] Request failed (${err?.name || "error"}): ${err?.message}`);
+    trace("fallback", err?.name === "AbortError" ? "timeout" : err?.message || "error");
     return fallback;
   } finally {
     clearTimeout(timer);
@@ -111,6 +125,9 @@ export async function describeImage({ imageBase64, prompt, fallback = null, time
   if (!imageBase64) return fallback;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const startedAt = Date.now();
+  const trace = (source, text) =>
+    recordModelCall({ kind: "vision", model: VISION_MODEL, source, ms: Date.now() - startedAt, ok: source === "model", preview: text || "" });
   try {
     const res = await fetch(`${ENDPOINT.replace(/\/$/, "")}/api/generate`, {
       method: "POST",
@@ -126,13 +143,20 @@ export async function describeImage({ imageBase64, prompt, fallback = null, time
     });
     if (!res.ok) {
       console.warn(`[ollama] vision non-OK (${res.status}); skipping.`);
+      trace("fallback", `non-OK ${res.status}`);
       return fallback;
     }
     const data = await res.json();
     const text = (data?.response ?? "").trim();
-    return text.length > 0 ? text : fallback;
+    if (text.length > 0) {
+      trace("model", text);
+      return text;
+    }
+    trace("fallback", "empty response");
+    return fallback;
   } catch (err) {
     console.warn(`[ollama] vision failed (${err?.name || "error"}): ${err?.message}`);
+    trace("fallback", err?.name === "AbortError" ? "timeout" : err?.message || "error");
     return fallback;
   } finally {
     clearTimeout(timer);
